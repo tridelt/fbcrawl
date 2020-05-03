@@ -131,18 +131,7 @@ class FacebookSpider(scrapy.Spider):
         return scrapy.Request(url=href,callback=self.parse_page,meta={'index':1})
 
 
-    def errback_httpbin(self, failure):
-        print('final straw')
-        print('hi there!!!!!!!!!!!')
-        # log all failures
-#        self.logger.error(repr(failure))
-
-        # in case you want to do something special for some errors,
-        # you may need the failure's type:
-
     def parse_page(self, response):
-        with open('snoopiestOFAll2.html', 'wb') as f:
-            f.write(response.body)
         for post in response.xpath("//article[contains(@data-ft,'top_level_post_id')]"):
  
             many_features = post.xpath('./@data-ft').get()
@@ -186,9 +175,6 @@ class FacebookSpider(scrapy.Spider):
         if self.group == 1:
             new_page = response.xpath("//div[contains(@id,'stories_container')]/div[2]/a/@href").extract()      
         else:
-            print(type(response))
-            with open('finalForm.html', 'wb') as f:
-                f.write(response.body)
             new_page = response.xpath('//*[@id="structured_composer_async_container"]/div[2]/a/@href').extract()
             print(new_page)
             #this is why lang is needed                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
