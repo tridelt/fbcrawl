@@ -95,13 +95,6 @@ class FacebookSpider(scrapy.Spider):
                 )
   
     def parse_home(self, response):
-        '''
-        This method has multiple purposes:
-        1) Handle failed logins due to facebook 'save-device' redirection
-        2) Set language interface, if not already provided
-        3) Navigate to given page 
-        '''
-        #handle 'save-device' redirection
         if response.xpath("//div/a[contains(@href,'save-device')]"):
             self.logger.info('Going through the "save-device" checkpoint')
             return FormRequest.from_response(
@@ -133,21 +126,24 @@ class FacebookSpider(scrapy.Spider):
                                      'and try again')
                                                                  
         #navigate to provided page
-        href = response.urljoin(self.page)
+        href = "https://mbasic.facebook.com/{}".format(self.page)
         self.logger.info('Scraping facebook page {}'.format(href))
         return scrapy.Request(url=href,callback=self.parse_page,meta={'index':1})
 
+
+    def errback_httpbin(self, failure):
+        print('final straw')
+        print('hi there!!!!!!!!!!!')
+        # log all failures
+#        self.logger.error(repr(failure))
+
+        # in case you want to do something special for some errors,
+        # you may need the failure's type:
+
     def parse_page(self, response):
-        '''
-        Parse the given page selecting the posts.
-        Then ask recursively for another page.
-        '''
-#        #open page in browser for debug
-#        from scrapy.utils.response import open_in_browser
-#        open_in_browser(response)
-    
-        #select all posts
-        for post in response.xpath("//div[contains(@data-ft,'top_level_post_id')]"):     
+        with open('snoopiestOFAll2.html', 'wb') as f:
+            f.write(response.body)
+        for post in response.xpath("//article[contains(@data-ft,'top_level_post_id')]"):
  
             many_features = post.xpath('./@data-ft').get()
             date = []
@@ -190,8 +186,13 @@ class FacebookSpider(scrapy.Spider):
         if self.group == 1:
             new_page = response.xpath("//div[contains(@id,'stories_container')]/div[2]/a/@href").extract()      
         else:
-            new_page = response.xpath("//div[2]/a[contains(@href,'timestart=') and not(contains(text(),'ent')) and not(contains(text(),number()))]/@href").extract()      
-            #this is why lang is needed                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^               
+            print(type(response))
+            with open('finalForm.html', 'wb') as f:
+                f.write(response.body)
+            new_page = response.xpath('//*[@id="structured_composer_async_container"]/div[2]/a/@href').extract()
+            print(new_page)
+            #this is why lang is needed                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+            #'//*[@id="structured_composer_async_container"]/div[2]/a/@href'
         
         if not new_page: 
             self.logger.info('[!] "more" link not found, will look for a "year" link')
