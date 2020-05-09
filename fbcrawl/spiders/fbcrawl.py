@@ -6,6 +6,7 @@ from scrapy.http import FormRequest
 from scrapy.exceptions import CloseSpider
 from fbcrawl.items import FbcrawlItem, parse_date, parse_date2
 from datetime import datetime
+import sys
 
 class FacebookSpider(scrapy.Spider):
     '''
@@ -37,6 +38,7 @@ class FacebookSpider(scrapy.Spider):
         if 'page' in kwargs:
             if self.page.find('/groups/') != -1:
                 self.group = 1
+                sys.exit("we are parsing groups, we should not be parsing groups...")
             else:
                 self.group = 0
             if self.page.find('https://www.facebook.com/') != -1:
@@ -95,6 +97,7 @@ class FacebookSpider(scrapy.Spider):
                 )
   
     def parse_home(self, response):
+        print('this is only called once right???')
         if response.xpath("//div/a[contains(@href,'save-device')]"):
             self.logger.info('Going through the "save-device" checkpoint')
             return FormRequest.from_response(
@@ -133,6 +136,9 @@ class FacebookSpider(scrapy.Spider):
 
     def parse_page(self, response):
         for post in response.xpath("//article[contains(@data-ft,'top_level_post_id')]"):
+        
+#            with open('invest1.html', 'wb') as f:
+#                f.write(response.body)
  
             many_features = post.xpath('./@data-ft').get()
             date = []
@@ -171,16 +177,25 @@ class FacebookSpider(scrapy.Spider):
         #if not present look for the highest year not parsed yet
         #click once on the year and go back to clicking "more"
         
+        
+        
+        #this literally only get the more button link if there exists one...
         #new_page is different for groups
         if self.group == 1:
-            new_page = response.xpath("//div[contains(@id,'stories_container')]/div[2]/a/@href").extract()      
+            new_page = response.xpath("//div[contains(@id,'stories_container')]/div[2]/a/@href").extract()
+            print(new_page)
         else:
             new_page = response.xpath('//*[@id="structured_composer_async_container"]/div[2]/a/@href').extract()
-            print(new_page)
+            #            with open('0.html', 'wb') as f:
+            #                f.write(response.body)
             #this is why lang is needed                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
             #'//*[@id="structured_composer_async_container"]/div[2]/a/@href'
         
-        if not new_page: 
+        
+        
+        
+        
+        if not new_page or 'Recent' in str(response.xpath('//*[@id="structured_composer_async_container"]/div[2]/a').extract()):
             self.logger.info('[!] "more" link not found, will look for a "year" link')
             #self.k is the year link that we look for 
             if response.meta['flag'] == self.k and self.k >= self.year:                
@@ -192,6 +207,7 @@ class FacebookSpider(scrapy.Spider):
                     self.logger.info('Found a link for year "{}", new_page = {}'.format(self.k,new_page))
                     yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':self.k})
                 else:
+#                    print('does this ever happen????')
                     while not new_page: #sometimes the years are skipped this handles small year gaps
                         self.logger.info('Link not found for year {}, trying with previous year {}'.format(self.k,self.k-1))
                         self.k -= 1
@@ -207,13 +223,20 @@ class FacebookSpider(scrapy.Spider):
                 self.logger.info('Crawling has finished with no errors!')
         else:
             new_page = response.urljoin(new_page[0])
+#            print(new_page)
+#            print(new_page[0])
+#            sys.exit("this is what it looks like")
+
             if 'flag' in response.meta:
                 self.logger.info('Page scraped, clicking on "more"! new_page = {}'.format(new_page))
                 yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':response.meta['flag']})
             else:
                 self.logger.info('First page scraped, clicking on "more"! new_page = {}'.format(new_page))
                 yield scrapy.Request(new_page, callback=self.parse_page, meta={'flag':self.k})
-                
+          
+          
+          
+          
     def parse_post(self,response):
         new = ItemLoader(item=FbcrawlItem(),response=response,parent=response.meta['item'])
         new.context['lang'] = self.lang           
