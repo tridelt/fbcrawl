@@ -136,41 +136,40 @@ class FacebookSpider(scrapy.Spider):
 
     def parse_page(self, response):
         for post in response.xpath("//article[contains(@data-ft,'top_level_post_id')]"):
-        
-#            with open('invest1.html', 'wb') as f:
-#                f.write(response.body)
- 
-            many_features = post.xpath('./@data-ft').get()
-            date = []
-            date.append(many_features)
-            date = parse_date(date,{'lang':self.lang})
-            current_date = datetime.strptime(date,'%Y-%m-%d %H:%M:%S') if date is not None else date
-            
-            if current_date is None:
-                date_string = post.xpath('.//abbr/text()').get()
-                date = parse_date2([date_string],{'lang':self.lang})
-                current_date = datetime(date.year,date.month,date.day) if date is not None else date   
-                date = str(date)
+            try:
+                many_features = post.xpath('./@data-ft').get()
+                date = []
+                date.append(many_features)
+                date = parse_date(date,{'lang':self.lang})
+                current_date = datetime.strptime(date,'%Y-%m-%d %H:%M:%S') if date is not None else date
                 
-            #if 'date' argument is reached stop crawling
-            if self.date > current_date:
-                raise CloseSpider('Reached date: {}'.format(self.date))
+                if current_date is None:
+                    date_string = post.xpath('.//abbr/text()').get()
+                    date = parse_date2([date_string],{'lang':self.lang})
+                    current_date = datetime(date.year,date.month,date.day) if date is not None else date
+                    date = str(date)
+                    
+                #if 'date' argument is reached stop crawling
+                if self.date > current_date:
+                    raise CloseSpider('Reached date: {}'.format(self.date))
 
-            new = ItemLoader(item=FbcrawlItem(),selector=post)
-            if abs(self.count) + 1 > self.max:
-                raise CloseSpider('Reached max num of post: {}. Crawling finished'.format(abs(self.count)))
-            self.logger.info('Parsing post n = {}, post_date = {}'.format(abs(self.count)+1,date))
-            new.add_xpath('comments', './div[2]/div[2]/a[1]/text()')     
-            new.add_value('date',date)
-            new.add_xpath('post_id','./@data-ft')
-            new.add_xpath('url', ".//a[contains(@href,'footer')]/@href")
-            #page_url #new.add_value('url',response.url)
-            
-            #returns full post-link in a list
-            post = post.xpath(".//a[contains(@href,'footer')]/@href").extract() 
-            temp_post = response.urljoin(post[0])
-            self.count -= 1
-            yield scrapy.Request(temp_post, self.parse_post, priority = self.count, meta={'item':new})       
+                new = ItemLoader(item=FbcrawlItem(),selector=post)
+                if abs(self.count) + 1 > self.max:
+                    raise CloseSpider('Reached max num of post: {}. Crawling finished'.format(abs(self.count)))
+                self.logger.info('Parsing post n = {}, post_date = {}'.format(abs(self.count)+1,date))
+                new.add_xpath('comments', './div[2]/div[2]/a[1]/text()')
+                new.add_value('date',date)
+                new.add_xpath('post_id','./@data-ft')
+                new.add_xpath('url', ".//a[contains(@href,'footer')]/@href")
+                #page_url #new.add_value('url',response.url)
+                
+                #returns full post-link in a list
+                post = post.xpath(".//a[contains(@href,'footer')]/@href").extract()
+                temp_post = response.urljoin(post[0])
+                self.count -= 1
+                yield scrapy.Request(temp_post, self.parse_post, priority = self.count, meta={'item':new})
+            except:
+                continue
 
         #load following page, try to click on "more"
         #after few pages have been scraped, the "more" link might disappears 
